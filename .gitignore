@@ -1,28 +1,32 @@
-# Exclude all python files as requested
-*.py
+# Dependencies & Virtual Envs
+node_modules/
+dist/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.db
-
-# Sensitive information
-.env
 .venv
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
+
+# Environment & Secrets (Security)
+.env
+*.env
+*.env.local
 secrets.*
 *.key
 *.pem
 *.cert
 
-# IDEs and OS files
-.vscode/
-.idea/
+# System & IDEs
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
 *.swp
 *.log
+
+# Databases
+*.db
+sqlite.db

@@ -1,0 +1,28 @@
+# Exclude all python files as requested
+*.py
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.db
+
+# Sensitive information
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+secrets.*
+*.key
+*.pem
+*.cert
+
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.log

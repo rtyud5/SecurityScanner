@@ -42,46 +42,46 @@ CHƯƠNG TRÌNH KẾT THÚC
 
 ---
 
-## 2. ScanEngine
+## 2. ScanEngine (source/engine.py)
 
 ```
-CLASS ScanEngine:
+HÀM run_scan(url, verify_ssl):
+    results = []                    # Danh sách ScanResult
 
-    KHỞI TẠO(url, response):
-        self.url = url
-        self.response = response
-        self.results = []           # Danh sách ScanResult
-        self.modules = [
-            HeaderScanner,
-            InfoScanner,
-            HttpsChecker,
-            PathScanner,
-            CookieChecker,
-            CorsChecker,
-            RobotsParser
-        ]
+    GỬi request ban đầu đến url
+    NẾU không kết nối được: in lỗi, trả về None
 
-    HÀM run():
-        Chạy tất cả module song song bằng ThreadPoolExecutor
-        
-        VỚI mỗi module TRONG self.modules:
-            Chạy module.scan(self.url, self.response)
-            Thu thập kết quả vào self.results
-        
-        Sắp xếp results theo severity (CRITICAL trước)
-        Trả về self.results
+    Chạy từng module và gộp kết quả:
+        [1/7] check_headers(response)
+        [2/7] check_info_disclosure(response)
+        [3/7] check_https(url)
+        [4/7] check_sensitive_paths(url)     ← quét song song bên trong
+        [5/7] check_cookies(response)
+        [6/7] check_cors(url)
+        [7/7] check_robots(url)
 
-    HÀM calculate_score(results):
-        score = 100
-        
-        VỚI mỗi result TRONG results:
-            NẾU result.status == "FAIL":
-                NẾU result.severity == "CRITICAL": score -= 25
-                NẾU result.severity == "HIGH":     score -= 15
-                NẾU result.severity == "MEDIUM":   score -= 10
-                NẾU result.severity == "LOW":      score -= 5
-        
-        Trả về max(0, score)  ← Không xuống dưới 0
+    Trả về results
+
+
+HÀM calculate_score(results):
+    score = 100
+    
+    VỚI mỗi result TRONG results:
+        NẾU result.status == "FAIL":
+            NẾU result.severity == "CRITICAL": score -= 25
+            NẾU result.severity == "HIGH":     score -= 15
+            NẾU result.severity == "MEDIUM":   score -= 10
+            NẾU result.severity == "LOW":      score -= 5
+    
+    Trả về max(0, score)  ← Không xuống dưới 0
+
+
+HÀM main():
+    Đọc tham số CLI: --url, --output, --json, --no-verify, --verbose
+    Normalize và validate URL
+    Gọi run_scan() → results
+    Tính score = calculate_score(results)
+    Xuất báo cáo HTML + JSON + terminal
 ```
 
 ---
@@ -160,50 +160,61 @@ CLASS InfoScanner:
 
 ---
 
-## 5. Module 3 — HttpsChecker
+## 5. Module 3 — HttpsChecker (source/modules/https_checker.py)
 
 ```
-CLASS HttpsChecker:
-
-    HÀM scan(url, response):
-        results = []
-        hostname = lấy_domain_từ_url(url)
-        
-        --- Kiểm tra HTTPS ---
-        NẾU url bắt đầu bằng "http://":
-            → FAIL: "Website không dùng HTTPS"
-            → severity: HIGH
-            Trả về results sớm (không cần kiểm tra certificate)
-        
-        --- Kiểm tra redirect HTTP → HTTPS ---
-        http_url = "http://" + hostname
-        response_http = gửi_request(http_url, follow_redirect=False)
-        
-        NẾU response_http.status_code là 301 hoặc 302:
-            NẾU Location header chứa "https://":
-                → PASS: "HTTP tự redirect sang HTTPS"
+HÀM check_https(url):
+    results = []
+    hostname = lấy_domain_từ_url(url)
+    
+    --- Kiểm tra HTTPS ---
+    NẾU url bắt đầu bằng "http://":
+        → FAIL: "Website không dùng HTTPS"
+        → severity: HIGH
+        Trả về results sớm (không cần kiểm tra certificate)
+    
+    --- Kiểm tra redirect HTTP → HTTPS ---
+    http_url = "http://" + hostname
+    response_http = gửi_request(http_url, follow_redirect=False)
+    
+    NẾU response_http.status_code là 301, 302, 307 hoặc 308:
+        NẾU Location header chứa "https://":
+            → PASS: "HTTP tự redirect sang HTTPS"
         NGƯỢC LẠI:
-            → FAIL: "HTTP không redirect sang HTTPS"
+            → WARN: "HTTP redirect nhưng không sang HTTPS"
+    NGƯỢC LẠI:
+        → FAIL: "HTTP không redirect sang HTTPS"
+    
+    --- Kiểm tra TLS version ---
+    CỐ GẮNG:
+        kết nối SSL đến hostname:443
+        tls_version = lấy_version_tls()
         
-        --- Kiểm tra certificate ---
-        CỐ GẮNG:
-            cert = lấy_ssl_certificate(hostname)
-            ngày_hết_hạn = cert.not_after
-            số_ngày_còn_lại = ngày_hết_hạn - hôm_nay
-            
-            NẾU số_ngày_còn_lại < 0:
-                → FAIL: "Certificate đã hết hạn"
-                → severity: CRITICAL
-            NGƯỢC LẠI NẾU số_ngày_còn_lại < 30:
-                → WARN: "Certificate sắp hết hạn ({n} ngày)"
-                → severity: MEDIUM
-            NGƯỢC LẠI:
-                → PASS: "Certificate còn hạn ({n} ngày)"
+        NẾU tls_version là TLSv1 hoặc TLSv1.1:
+            → FAIL: "TLS version đã deprecated"
+            → severity: HIGH
+        NGƯỢC LẠI:
+            → PASS: ghi nhận version
+    
+    --- Kiểm tra certificate ---
+    CỐ GẮNG:
+        cert = lấy_ssl_certificate(hostname)
+        ngày_hết_hạn = cert.not_after
+        số_ngày_còn_lại = ngày_hết_hạn - hôm_nay (UTC)
         
-        XỬ LÝ LỖI SSL:
-            → FAIL: "Không thể xác thực certificate"
-        
-        Trả về results
+        NẾU số_ngày_còn_lại < 0:
+            → FAIL: "Certificate đã hết hạn"
+            → severity: CRITICAL
+        NGƯỢC LẠI NẾU số_ngày_còn_lại < 30:
+            → WARN: "Certificate sắp hết hạn ({n} ngày)"
+            → severity: MEDIUM
+        NGƯỢC LẠI:
+            → PASS: "Certificate còn hạn ({n} ngày)"
+    
+    XỬ LÝ LỖI SSL:
+        → FAIL: "Không thể xác thực certificate"
+    
+    Trả về results
 ```
 
 ---

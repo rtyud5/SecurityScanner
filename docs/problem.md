@@ -80,6 +80,8 @@ Server vô tình tiết lộ thông tin về phần mềm đang chạy — phiê
 - Nhiều framework hiển thị trang lỗi với stack trace đầy đủ khi có exception
 - Stack trace lộ: đường dẫn file trên server, tên biến, cấu trúc database
 
+> ⚠️ *Ghi chú: Kiểm tra stack trace chưa được implement trong phiên bản hiện tại vì cần phân tích HTML body phức tạp. Dự kiến bổ sung ở phiên bản sau.*
+
 ### Cách kiểm tra
 ```python
 # Kiểm tra các header
@@ -113,6 +115,8 @@ HTTPS mã hóa dữ liệu giữa trình duyệt và server. Nhưng không phả
 
 **Certificate có match domain không?**
 - Certificate cấp cho `example.com` nhưng đang dùng cho `sub.example.com` → cảnh báo
+
+> ⚠️ *Ghi chú: Kiểm tra domain matching chưa được implement trong phiên bản hiện tại. Python `ssl.create_default_context()` tự động reject certificate không khớp domain nên phần này đã được xử lý gán tiếp bởi SSL library.*
 
 ### Cách kiểm tra
 ```python

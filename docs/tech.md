@@ -74,16 +74,6 @@ with ThreadPoolExecutor(max_workers=5) as executor:
 
 ---
 
-### jinja2
-**Dùng để:** Render template HTML cho báo cáo
-```python
-from jinja2 import Environment, FileSystemLoader
-env = Environment(loader=FileSystemLoader("report/"))
-template = env.get_template("template.html")
-html = template.render(report=scan_report)
-```
-**Học gì từ đây:** Template engine, separation of logic and presentation
-
 ---
 
 ### json (built-in)
@@ -110,12 +100,13 @@ print(Fore.GREEN + "PASS" + Style.RESET_ALL)
 
 ```
 requests==2.31.0      # HTTP requests
-jinja2==3.1.2         # HTML templating
-colorama==0.4.6       # Màu terminal
+colorama==0.4.6       # Màu terminal (PASS/FAIL/WARN)
 urllib3==2.0.7        # Dependency của requests (SSL)
 ```
 
-Phần còn lại (`ssl`, `socket`, `argparse`, `json`, `concurrent.futures`, `urllib.parse`) là thư viện built-in của Python — không cần cài thêm.
+Phần còn lại (`ssl`, `socket`, `argparse`, `json`, `html`, `os`, `re`, `logging`, `concurrent.futures`, `urllib.parse`) là thư viện built-in của Python — không cần cài thêm.
+
+> Ghi chú: Báo cáo HTML được tạo bằng f-string trong `source/report/generator.py`, không cần template engine bên ngoài.
 
 ---
 

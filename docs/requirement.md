@@ -11,7 +11,6 @@
 ### FR-02: Module Header Scanner
 - Kiểm tra sự tồn tại của 6 security headers: `X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`, `Content-Security-Policy`, `Referrer-Policy`, `Permissions-Policy`
 - Trả về PASS nếu header có mặt, FAIL nếu thiếu
-- Kiểm tra giá trị header có hợp lệ không (không chỉ có mặt)
 
 ### FR-03: Module Information Disclosure
 - Kiểm tra header `Server` có lộ phiên bản không
@@ -75,7 +74,7 @@
 - Tiếp tục các module khác khi 1 module lỗi
 
 ### NFR-03: Tính dễ đọc của code
-- Mỗi module trong file riêng biệt
+- Mỗi module quét trong file riêng biệt dưới `source/modules/`
 - Có docstring giải thích mỗi function
 - Có comment tiếng Việt cho phần phức tạp
 

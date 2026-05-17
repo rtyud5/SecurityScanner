@@ -38,22 +38,27 @@ Scanner Scanner  Checker  Scanner  Checker
 ```
 security-scanner/
 │
-├── scanner.py              ← Entry point, CLI interface
+├── scanner.py              ← Entry point (gọi source/engine.py)
 │
-├── modules/
+├── source/                 ← Mã nguồn chính
 │   ├── __init__.py
-│   ├── header_scanner.py   ← Module 1: HTTP Security Headers
-│   ├── info_scanner.py     ← Module 2: Information Disclosure
-│   ├── https_checker.py    ← Module 3: HTTPS/TLS
-│   ├── path_scanner.py     ← Module 4: Sensitive Paths
-│   ├── cookie_checker.py   ← Module 5: Cookie Flags
-│   ├── cors_checker.py     ← Module 6: CORS Policy
-│   └── robots_parser.py    ← Module 7: Robots.txt
-│
-├── report/
-│   ├── __init__.py
-│   ├── generator.py        ← Tạo báo cáo HTML và JSON
-│   └── template.html       ← Template HTML cho báo cáo
+│   ├── config.py           ← Hằng số và cấu hình
+│   ├── utils.py            ← Hàm tiện ích dùng chung
+│   ├── engine.py           ← Điều phối modules, CLI, scoring
+│   │
+│   ├── modules/            ← Các module quét bảo mật
+│   │   ├── __init__.py
+│   │   ├── header_scanner.py   ← Module 1: HTTP Security Headers
+│   │   ├── info_scanner.py     ← Module 2: Information Disclosure
+│   │   ├── https_checker.py    ← Module 3: HTTPS/TLS + HTTP Redirect
+│   │   ├── path_scanner.py     ← Module 4: Sensitive Paths (concurrent)
+│   │   ├── cookie_checker.py   ← Module 5: Cookie Flags
+│   │   ├── cors_checker.py     ← Module 6: CORS Policy
+│   │   └── robots_parser.py    ← Module 7: Robots.txt
+│   │
+│   └── report/             ← Xuất báo cáo
+│       ├── __init__.py
+│       └── generator.py    ← Tạo báo cáo HTML, JSON, terminal (colorama)
 │
 ├── wordlists/
 │   └── sensitive_paths.txt ← Danh sách đường dẫn cần thử
@@ -68,6 +73,7 @@ security-scanner/
 │   └── pseudo.md
 │
 ├── requirements.txt
+├── LICENSE
 └── README.md
 ```
 
@@ -75,18 +81,16 @@ security-scanner/
 
 ### 3.1 ScanResult — Kết quả của mỗi kiểm tra
 
-Mỗi lần kiểm tra trả về một object có cấu trúc thống nhất:
+Mỗi lần kiểm tra trả về một dict có cấu trúc thống nhất, được tạo bởi hàm `make_result()` trong `source/utils.py`:
 
 ```python
 {
-    "module": "header_scanner",       # Module nào thực hiện
-    "check_name": "X-Frame-Options",  # Tên kiểm tra
+    "module": "Headers",              # Module nào thực hiện
+    "check": "X-Frame-Options",       # Tên kiểm tra
     "status": "FAIL",                 # PASS / FAIL / WARN / INFO
     "severity": "MEDIUM",             # CRITICAL / HIGH / MEDIUM / LOW / INFO
-    "description": "Header X-Frame-Options bị thiếu",
-    "detail": "Thiếu header này cho phép tấn công Clickjacking",
-    "recommendation": "Thêm header: X-Frame-Options: DENY",
-    "reference": "https://owasp.org/www-community/attacks/Clickjacking"
+    "description": "Thiếu header X-Frame-Options — cho phép tấn công Clickjacking",
+    "fix": "Thêm header: X-Frame-Options: DENY"   # Khuyến nghị cách sửa (tùy chọn)
 }
 ```
 
@@ -95,14 +99,15 @@ Mỗi lần kiểm tra trả về một object có cấu trúc thống nhất:
 ```python
 {
     "target": "https://example.com",
-    "scan_time": "2024-01-15 09:30:00",
-    "duration": 8.5,                    # giây
+    "scan_time": "2024-01-15T09:30:00",   # ISO format
+    "duration_seconds": 8.5,
+    "score": 40,
+    "score_label": "KÉM 🟠",
     "summary": {
-        "total_checks": 25,
+        "total": 25,
         "passed": 10,
         "failed": 12,
-        "warnings": 3,
-        "score": 40                     # điểm 0-100
+        "warned": 3
     },
     "results": [
         { ... },   # ScanResult objects

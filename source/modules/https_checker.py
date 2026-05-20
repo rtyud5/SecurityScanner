@@ -13,7 +13,7 @@ from source.config import CERT_EXPIRY_WARNING_DAYS, DEFAULT_TLS_PORT
 from source.utils import make_result, safe_get, get_base_url, logger
 
 
-def check_https(url):
+def check_https(url, verify_ssl=True):
     """
     Kiểm tra cấu hình HTTPS đầy đủ:
     1. Website có dùng HTTPS không
@@ -23,6 +23,7 @@ def check_https(url):
 
     Args:
         url: URL đã được chuẩn hóa
+        verify_ssl: Có kiểm tra SSL certificate không
 
     Returns:
         list[dict]: Danh sách ScanResult
@@ -51,7 +52,7 @@ def check_https(url):
     ))
 
     # ── Kiểm tra HTTP redirect sang HTTPS ──
-    results.extend(_check_http_redirect(url))
+    results.extend(_check_http_redirect(url, verify_ssl=verify_ssl))
 
     # ── Kiểm tra certificate + TLS version ──
     hostname = parsed.netloc.split(":")[0]  # Bỏ port nếu có
@@ -159,13 +160,14 @@ def check_https(url):
     return results
 
 
-def _check_http_redirect(url):
+def _check_http_redirect(url, verify_ssl=True):
     """
     Kiểm tra xem HTTP có tự redirect sang HTTPS không.
     Nếu website dùng HTTPS, thử truy cập qua HTTP xem có redirect không.
 
     Args:
         url: URL HTTPS gốc
+        verify_ssl: Có kiểm tra SSL certificate không
 
     Returns:
         list[dict]: Danh sách ScanResult
@@ -177,7 +179,7 @@ def _check_http_redirect(url):
     http_url = f"http://{parsed.netloc}"
 
     try:
-        r = safe_get(http_url, allow_redirects=False)
+        r = safe_get(http_url, verify_ssl=verify_ssl, allow_redirects=False)
         if r is None:
             return results  # Không thể kiểm tra, bỏ qua
 

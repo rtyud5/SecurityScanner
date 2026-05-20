@@ -12,13 +12,14 @@ from source.utils import (
 )
 
 
-def _check_single_path(base, path, severity="MEDIUM", desc="Đường dẫn nhạy cảm"):
+def _check_single_path(base, path, verify_ssl=True, severity="MEDIUM", desc="Đường dẫn nhạy cảm"):
     """
     Kiểm tra một đường dẫn cụ thể — dùng cho concurrent execution.
 
     Args:
         base: Base URL (vd: https://example.com)
         path: Đường dẫn cần kiểm tra (vd: /.env)
+        verify_ssl: Có kiểm tra SSL certificate không
         severity: Mức độ nguy hiểm mặc định
         desc: Mô tả đường dẫn
 
@@ -26,7 +27,7 @@ def _check_single_path(base, path, severity="MEDIUM", desc="Đường dẫn nh�
         dict hoặc None: ScanResult nếu tìm thấy, None nếu không
     """
     full_url = base + path
-    r = safe_get(full_url)
+    r = safe_get(full_url, verify_ssl=verify_ssl)
 
     if r is None:
         return None
@@ -56,7 +57,7 @@ def _check_single_path(base, path, severity="MEDIUM", desc="Đường dẫn nh�
     return None
 
 
-def check_sensitive_paths(url):
+def check_sensitive_paths(url, verify_ssl=True):
     """
     Thử các đường dẫn phổ biến có thể bị lộ.
     Dùng ThreadPoolExecutor để quét song song cho tốc độ tốt hơn.
@@ -64,6 +65,7 @@ def check_sensitive_paths(url):
 
     Args:
         url: URL cần quét
+        verify_ssl: Có kiểm tra SSL certificate không
 
     Returns:
         list[dict]: Danh sách ScanResult
@@ -91,7 +93,7 @@ def check_sensitive_paths(url):
     with ThreadPoolExecutor(max_workers=MAX_PATH_WORKERS) as executor:
         futures = {
             executor.submit(_check_single_path, base, item["path"],
-                            item["severity"], item["desc"]): item
+                            verify_ssl, item["severity"], item["desc"]): item
             for item in path_items
         }
         for future in as_completed(futures):

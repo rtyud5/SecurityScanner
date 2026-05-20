@@ -6,13 +6,14 @@ Phát hiện cấu hình CORS quá rộng có thể cho phép website độc h�
 from source.utils import make_result, safe_get
 
 
-def check_cors(url):
+def check_cors(url, verify_ssl=True):
     """
     Kiểm tra cấu hình CORS bằng cách gửi request với Origin giả.
     Kiểm tra cả null origin (exploit qua sandboxed iframe).
 
     Args:
         url: URL cần kiểm tra
+        verify_ssl: Có kiểm tra SSL certificate không
 
     Returns:
         list[dict]: Danh sách ScanResult
@@ -20,14 +21,14 @@ def check_cors(url):
     results = []
     fake_origin = "https://evil-attacker-site.com"
 
-    r = safe_get(url, headers={"Origin": fake_origin})
+    r = safe_get(url, verify_ssl=verify_ssl, headers={"Origin": fake_origin})
     if r is None:
         return results
 
     acao = r.headers.get("Access-Control-Allow-Origin", "")
 
     # ── Test null origin (exploit qua sandboxed iframe) ──
-    r_null = safe_get(url, headers={"Origin": "null"})
+    r_null = safe_get(url, verify_ssl=verify_ssl, headers={"Origin": "null"})
     if r_null:
         acao_null = r_null.headers.get("Access-Control-Allow-Origin", "")
         if acao_null == "null":

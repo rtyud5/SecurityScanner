@@ -6,13 +6,14 @@ Module 7: Phân tích Robots.txt
 from source.utils import make_result, safe_get, get_base_url
 
 
-def check_robots(url):
+def check_robots(url, verify_ssl=True):
     """
     Đọc robots.txt và tìm các đường dẫn nhạy cảm bị liệt kê trong Disallow.
     Hacker thường đọc robots.txt để biết những trang "thú vị".
 
     Args:
         url: URL cần kiểm tra
+        verify_ssl: Có kiểm tra SSL certificate không
 
     Returns:
         list[dict]: Danh sách ScanResult
@@ -21,7 +22,7 @@ def check_robots(url):
     sensitive_keywords = ["admin", "backup", "api", "internal", "secret", "private", "config", "db"]
     base = get_base_url(url)
 
-    r = safe_get(base + "/robots.txt")
+    r = safe_get(base + "/robots.txt", verify_ssl=verify_ssl)
     if r is None or r.status_code != 200:
         results.append(make_result(
             module="Robots.txt",

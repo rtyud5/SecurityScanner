@@ -68,17 +68,17 @@ def run_scan(url, verify_ssl=False):
     all_results.extend(check_info_disclosure(response))
 
     print("  [4/7] Kiểm tra HTTPS/TLS...")
-    all_results.extend(check_https(url))
+    all_results.extend(check_https(url, verify_ssl=verify_ssl))
 
     print("  [5/7] Quét đường dẫn nhạy cảm...")
-    all_results.extend(check_sensitive_paths(url))
+    all_results.extend(check_sensitive_paths(url, verify_ssl=verify_ssl))
 
     print("  [6/7] Kiểm tra Cookie flags...")
     all_results.extend(check_cookies(response))
 
     print("  [7/7] Kiểm tra CORS & Robots.txt...")
-    all_results.extend(check_cors(url))
-    all_results.extend(check_robots(url))
+    all_results.extend(check_cors(url, verify_ssl=verify_ssl))
+    all_results.extend(check_robots(url, verify_ssl=verify_ssl))
 
     return all_results
 

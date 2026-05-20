@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>WebSec Scanner Report — https://courses.ctda.hcmus.edu.vn/?redirect=0</title>
+<style>
+  body { font-family: sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; color: #333; }
+  h1 { color: #2c3e50; }
+  .meta { color: #666; font-size: 0.9em; margin-bottom: 24px; }
+  .score { font-size: 2.5em; font-weight: bold; margin: 20px 0 8px; }
+  .summary { display: flex; gap: 16px; margin-bottom: 32px; }
+  .badge { padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 1.1em; }
+  .pass { background: #d5f5e3; color: #1e8449; }
+  .fail { background: #fadbd8; color: #922b21; }
+  .warn { background: #fdebd0; color: #935116; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+  th { background: #2c3e50; color: white; padding: 10px 12px; text-align: left; }
+  td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+  tr:hover { background: #f8f9fa; }
+  .disclaimer { margin-top: 40px; padding: 16px; background: #fef9e7; border-left: 4px solid #f39c12; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<h1>🔍 WebSec Scanner Report</h1>
+<div class="meta">
+  <b>Mục tiêu:</b> https://courses.ctda.hcmus.edu.vn/?redirect=0<br>
+  <b>Thời gian quét:</b> 2026-05-21 01:53:50<br>
+  <b>Thời lượng:</b> 4.1 giây
+</div>
+
+<div class="score">Security Score: 0/100 — NGUY HIỂM 🔴</div>
+
+<div class="summary">
+  <div class="badge pass">✅ PASS: 6</div>
+  <div class="badge fail">❌ FAIL: 14</div>
+  <div class="badge warn">⚠️ WARN: 3</div>
+</div>
+
+<table>
+  <tr>
+    <th>Module</th><th>Kiểm tra</th><th>Kết quả</th><th>Mức độ</th><th>Chi tiết</th>
+  </tr>
+  
+        <tr>
+            <td>Path Scanner</td>
+            <td>Exposed: /.git/config</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#c0392b;font-weight:bold">CRITICAL</td>
+            <td>Tìm thấy /.git/config (HTTP 200): Git repository bị lộ - có thể tải source code<br><small><b>Cách sửa:</b> Chặn truy cập vào /.git/config hoặc xóa file nếu không cần</small></td>
+        </tr>
+        <tr>
+            <td>Headers</td>
+            <td>Content-Security-Policy</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e74c3c;font-weight:bold">HIGH</td>
+            <td>Thiếu header Content-Security-Policy — Thiếu CSP làm website dễ bị tấn công XSS<br><small><b>Cách sửa:</b> Thêm header Content-Security-Policy với policy phù hợp</small></td>
+        </tr>
+        <tr>
+            <td>Headers</td>
+            <td>Strict-Transport-Security</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Thiếu header Strict-Transport-Security — Người dùng có thể bị ép dùng HTTP không mã hóa<br><small><b>Cách sửa:</b> Thêm: Strict-Transport-Security: max-age=31536000; includeSubDomains</small></td>
+        </tr>
+        <tr>
+            <td>Info Disclosure</td>
+            <td>Server Header</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Header Server lộ phiên bản: &#x27;Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips PHP/7.4.33&#x27;<br><small><b>Cách sửa:</b> Cấu hình server để ẩn phiên bản, hoặc xóa header Server</small></td>
+        </tr>
+        <tr>
+            <td>Info Disclosure</td>
+            <td>X-Powered-By Header</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Header X-Powered-By lộ công nghệ: &#x27;PHP/7.4.33&#x27;<br><small><b>Cách sửa:</b> Xóa header X-Powered-By trong cấu hình server/framework</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Exposed: /.git/HEAD</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Tìm thấy /.git/HEAD (HTTP 200): Đường dẫn nhạy cảm<br><small><b>Cách sửa:</b> Chặn truy cập vào /.git/HEAD hoặc xóa file nếu không cần</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Exposed: /composer.json</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Tìm thấy /composer.json (HTTP 200): Đường dẫn nhạy cảm<br><small><b>Cách sửa:</b> Chặn truy cập vào /composer.json hoặc xóa file nếu không cần</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Exposed: /config.php</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Tìm thấy /config.php (HTTP 200): Đường dẫn nhạy cảm<br><small><b>Cách sửa:</b> Chặn truy cập vào /config.php hoặc xóa file nếu không cần</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Exposed: /package.json</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Tìm thấy /package.json (HTTP 200): Đường dẫn nhạy cảm<br><small><b>Cách sửa:</b> Chặn truy cập vào /package.json hoặc xóa file nếu không cần</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Exposed: /composer.lock</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Tìm thấy /composer.lock (HTTP 200): Đường dẫn nhạy cảm<br><small><b>Cách sửa:</b> Chặn truy cập vào /composer.lock hoặc xóa file nếu không cần</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Exposed: /admin</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#e67e22;font-weight:bold">MEDIUM</td>
+            <td>Tìm thấy /admin (HTTP 200): Trang quản trị mặc định<br><small><b>Cách sửa:</b> Chặn truy cập vào /admin hoặc xóa file nếu không cần</small></td>
+        </tr>
+        <tr>
+            <td>Headers</td>
+            <td>X-Content-Type-Options</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#f39c12;font-weight:bold">LOW</td>
+            <td>Thiếu header X-Content-Type-Options — Trình duyệt có thể đoán sai loại file (MIME sniffing)<br><small><b>Cách sửa:</b> Thêm: X-Content-Type-Options: nosniff</small></td>
+        </tr>
+        <tr>
+            <td>Headers</td>
+            <td>Referrer-Policy</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#f39c12;font-weight:bold">LOW</td>
+            <td>Thiếu header Referrer-Policy — URL đầy đủ (kể cả token) có thể bị lộ khi người dùng click link ngoài<br><small><b>Cách sửa:</b> Thêm: Referrer-Policy: strict-origin-when-cross-origin</small></td>
+        </tr>
+        <tr>
+            <td>Headers</td>
+            <td>Permissions-Policy</td>
+            <td style="color:#e74c3c;font-weight:bold">FAIL</td>
+            <td style="color:#f39c12;font-weight:bold">LOW</td>
+            <td>Thiếu header Permissions-Policy — Website nhúng có thể truy cập camera/mic mà không hỏi<br><small><b>Cách sửa:</b> Thêm: Permissions-Policy: camera=(), microphone=(), geolocation=()</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Blocked: /.htpasswd</td>
+            <td style="color:#e67e22;font-weight:bold">WARN</td>
+            <td style="color:#f39c12;font-weight:bold">LOW</td>
+            <td>Đường dẫn /.htpasswd tồn tại nhưng bị chặn (HTTP 403)<br><small><b>Cách sửa:</b> Kiểm tra xem có cần đường dẫn này không, nếu không thì xóa</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Blocked: /.htaccess</td>
+            <td style="color:#e67e22;font-weight:bold">WARN</td>
+            <td style="color:#f39c12;font-weight:bold">LOW</td>
+            <td>Đường dẫn /.htaccess tồn tại nhưng bị chặn (HTTP 403)<br><small><b>Cách sửa:</b> Kiểm tra xem có cần đường dẫn này không, nếu không thì xóa</small></td>
+        </tr>
+        <tr>
+            <td>Path Scanner</td>
+            <td>Blocked: /backup</td>
+            <td style="color:#e67e22;font-weight:bold">WARN</td>
+            <td style="color:#f39c12;font-weight:bold">LOW</td>
+            <td>Đường dẫn /backup tồn tại nhưng bị chặn (HTTP 403)<br><small><b>Cách sửa:</b> Kiểm tra xem có cần đường dẫn này không, nếu không thì xóa</small></td>
+        </tr>
+        <tr>
+            <td>Headers</td>
+            <td>X-Frame-Options</td>
+            <td style="color:#27ae60;font-weight:bold">PASS</td>
+            <td style="color:#27ae60;font-weight:bold">INFO</td>
+            <td>Header X-Frame-Options có mặt</td>
+        </tr>
+        <tr>
+            <td>HTTPS</td>
+            <td>HTTPS Enabled</td>
+            <td style="color:#27ae60;font-weight:bold">PASS</td>
+            <td style="color:#27ae60;font-weight:bold">INFO</td>
+            <td>Website dùng HTTPS</td>
+        </tr>
+        <tr>
+            <td>HTTPS</td>
+            <td>HTTP to HTTPS Redirect</td>
+            <td style="color:#27ae60;font-weight:bold">PASS</td>
+            <td style="color:#27ae60;font-weight:bold">INFO</td>
+            <td>HTTP tự redirect sang HTTPS (302 → https://courses.ctda.hcmus.edu.vn/)</td>
+        </tr>
+        <tr>
+            <td>HTTPS</td>
+            <td>TLS Version</td>
+            <td style="color:#27ae60;font-weight:bold">PASS</td>
+            <td style="color:#27ae60;font-weight:bold">INFO</td>
+            <td>Server dùng TLSv1.3</td>
+        </tr>
+        <tr>
+            <td>HTTPS</td>
+            <td>Certificate Expiry</td>
+            <td style="color:#27ae60;font-weight:bold">PASS</td>
+            <td style="color:#27ae60;font-weight:bold">INFO</td>
+            <td>SSL Certificate còn hạn: 76 ngày</td>
+        </tr>
+        <tr>
+            <td>Cookies</td>
+            <td>Cookies Present</td>
+            <td style="color:#3498db;font-weight:bold">INFO</td>
+            <td style="color:#27ae60;font-weight:bold">INFO</td>
+            <td>Không có cookie trong response này</td>
+        </tr>
+        <tr>
+            <td>CORS</td>
+            <td>CORS Policy</td>
+            <td style="color:#27ae60;font-weight:bold">PASS</td>
+            <td style="color:#27ae60;font-weight:bold">INFO</td>
+            <td>Không có CORS header</td>
+        </tr>
+        <tr>
+            <td>Robots.txt</td>
+            <td>Robots.txt</td>
+            <td style="color:#3498db;font-weight:bold">INFO</td>
+            <td style="color:#27ae60;font-weight:bold">INFO</td>
+            <td>Không tìm thấy file robots.txt</td>
+        </tr>
+</table>
+
+<div class="disclaimer">
+  ⚠️ <b>Disclaimer:</b> Công cụ này chỉ dành cho mục đích học tập và kiểm tra website bạn được phép kiểm tra.
+  Không sử dụng để quét website của người khác khi chưa được cho phép.
+</div>
+</body>
+</html>

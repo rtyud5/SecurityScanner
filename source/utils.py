@@ -42,7 +42,7 @@ def validate_url(url):
     return True
 
 
-def safe_get(url, verify_ssl=False, **kwargs):
+def safe_get(url, verify_ssl=True, **kwargs):
     """
     Gửi GET request an toàn, trả về None nếu có lỗi (thay vì crash).
     Phân loại exception cụ thể để dễ debug hơn.

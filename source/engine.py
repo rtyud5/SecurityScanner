@@ -1,6 +1,9 @@
 """
 ScanEngine — Điều phối tất cả modules quét bảo mật.
 Nhận URL, chạy 7 module, thu thập kết quả, tính điểm.
+
+run_scan()  → logic quét thuần, Flask/UI có thể gọi trực tiếp
+main()      → chỉ parse CLI, gọi run_scan(), gọi report
 """
 
 import logging
@@ -9,7 +12,7 @@ import urllib3
 from datetime import datetime
 
 from source.config import SEVERITY_SCORE
-from source.utils import normalize_url, validate_url, safe_get
+from source.utils import normalize_url, validate_url, safe_get, get_score_label
 
 from source.modules.header_scanner import check_headers
 from source.modules.info_scanner import check_info_disclosure
@@ -33,27 +36,18 @@ def calculate_score(results):
     return max(0, score)
 
 
-def get_score_label(score):
-    """Trả về nhãn đánh giá dựa trên điểm"""
-    if score >= 80:
-        return "TỐT 🟢"
-    if score >= 60:
-        return "TRUNG BÌNH 🟡"
-    if score >= 40:
-        return "KÉM 🟠"
-    return "NGUY HIỂM 🔴"
-
-
 def run_scan(url, verify_ssl=False):
     """
     Chạy tất cả 7 module quét bảo mật.
+    Hàm này chỉ chứa logic quét — không đụng CLI hay report.
+    Flask hoặc UI khác có thể import và gọi trực tiếp.
 
     Args:
         url: URL đã được chuẩn hóa
         verify_ssl: Có kiểm tra SSL certificate không
 
     Returns:
-        list[dict]: Danh sách tất cả ScanResult từ 7 modules
+        list[dict]: Danh sách tất cả ScanResult từ 7 modules, hoặc None nếu lỗi kết nối
     """
     all_results = []
 
@@ -90,7 +84,7 @@ def run_scan(url, verify_ssl=False):
 
 
 def main():
-    """Entry point chính — đọc CLI, chạy scan, xuất báo cáo."""
+    """Entry point CLI — chỉ parse argument, gọi run_scan(), gọi report."""
 
     # Disclaimer
     print("=" * 55)

@@ -117,22 +117,43 @@ def check_https(url):
                 description=f"SSL Certificate còn hạn: {days_left} ngày"
             ))
 
-    except ssl.SSLError as e:
+    except ssl.SSLCertVerificationError as e:
+        # Certificate không match domain hoặc không được trust
         results.append(make_result(
             module="HTTPS",
             check_name="Certificate Valid",
             status="FAIL",
             severity="HIGH",
-            description=f"Lỗi SSL Certificate: {str(e)}",
+            description=f"Certificate không hợp lệ: {e}",
             fix="Kiểm tra và cài lại SSL certificate đúng cách"
         ))
-    except Exception:
+    except ssl.SSLError as e:
+        # SSL handshake thất bại (cipher, protocol, v.v.)
+        results.append(make_result(
+            module="HTTPS",
+            check_name="Certificate Valid",
+            status="FAIL",
+            severity="HIGH",
+            description=f"Lỗi SSL handshake: {e}",
+            fix="Kiểm tra cấu hình TLS/SSL trên server"
+        ))
+    except socket.timeout:
+        # Timeout khi kết nối SSL
         results.append(make_result(
             module="HTTPS",
             check_name="Certificate Valid",
             status="WARN",
             severity="LOW",
-            description="Không thể kiểm tra certificate (có thể do timeout)"
+            description="Timeout khi kiểm tra certificate"
+        ))
+    except OSError as e:
+        # Network unreachable, connection refused, v.v.
+        results.append(make_result(
+            module="HTTPS",
+            check_name="Certificate Valid",
+            status="WARN",
+            severity="LOW",
+            description=f"Không thể kết nối để kiểm tra certificate: {e}"
         ))
 
     return results

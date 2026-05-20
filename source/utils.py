@@ -1,6 +1,7 @@
 """
 Hàm tiện ích dùng chung cho WebSec Scanner.
-Bao gồm: xử lý URL, gửi HTTP request an toàn, phát hiện soft 404, load wordlist.
+Bao gồm: xử lý URL, gửi HTTP request an toàn, phát hiện soft 404,
+load wordlist, tính điểm, nhãn đánh giá.
 """
 
 import os
@@ -42,15 +43,30 @@ def validate_url(url):
 
 
 def safe_get(url, verify_ssl=False, **kwargs):
-    """Gửi GET request, trả về None nếu có lỗi (thay vì crash)"""
+    """
+    Gửi GET request an toàn, trả về None nếu có lỗi (thay vì crash).
+    Phân loại exception cụ thể để dễ debug hơn.
+    """
     headers = kwargs.pop("headers", {})
     if "User-Agent" not in headers:
         headers["User-Agent"] = USER_AGENT
     try:
         return requests.get(url, timeout=DEFAULT_TIMEOUT, verify=verify_ssl,
                             headers=headers, **kwargs)
+    except requests.exceptions.Timeout:
+        logger.debug(f"Timeout khi kết nối {url}")
+        return None
+    except requests.exceptions.SSLError as e:
+        logger.debug(f"SSL error {url}: {e}")
+        return None
+    except requests.exceptions.ConnectionError:
+        logger.debug(f"Không thể kết nối {url}")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Request lỗi {url}: {type(e).__name__}: {e}")
+        return None
     except Exception as e:
-        logger.debug(f"Request failed for {url}: {e}")
+        logger.warning(f"Lỗi không mong đợi khi request {url}: {type(e).__name__}: {e}")
         return None
 
 
@@ -74,7 +90,10 @@ def is_soft_404(response):
 
 
 def load_wordlist_paths(wordlist_file=None):
-    """Load danh sách path từ wordlist file. Trả về None nếu không có file."""
+    """
+    Load danh sách path từ wordlist file. Trả về None nếu không có file.
+    Có guard cho lỗi encoding và lỗi đọc file.
+    """
     if wordlist_file is None:
         # Tìm file mặc định: từ thư mục gốc project / wordlists/
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -84,14 +103,21 @@ def load_wordlist_paths(wordlist_file=None):
         logger.info(f"Wordlist không tìm thấy: {wordlist_file}, dùng danh sách mặc định")
         return None  # Caller sẽ dùng SENSITIVE_PATHS
 
-    paths = []
-    with open(wordlist_file, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                paths.append(line)
-    logger.info(f"Đã load {len(paths)} paths từ {wordlist_file}")
-    return paths
+    try:
+        paths = []
+        with open(wordlist_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    paths.append(line)
+        logger.info(f"Đã load {len(paths)} paths từ {wordlist_file}")
+        return paths
+    except UnicodeDecodeError:
+        logger.warning(f"Wordlist encoding lỗi: {wordlist_file}, dùng danh sách mặc định")
+        return None
+    except OSError as e:
+        logger.warning(f"Không đọc được wordlist {wordlist_file}: {e}")
+        return None
 
 
 def make_result(module, check_name, status, severity, description, fix=""):
@@ -114,3 +140,17 @@ def make_result(module, check_name, status, severity, description, fix=""):
         "description": description,
         "fix": fix
     }
+
+
+def get_score_label(score):
+    """
+    Trả về nhãn đánh giá dựa trên điểm bảo mật.
+    Hàm dùng chung cho engine.py và report/generator.py — tránh duplicate.
+    """
+    if score >= 80:
+        return "TỐT 🟢"
+    if score >= 60:
+        return "TRUNG BÌNH 🟡"
+    if score >= 40:
+        return "KÉM 🟠"
+    return "NGUY HIỂM 🔴"

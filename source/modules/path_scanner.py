@@ -99,6 +99,10 @@ def check_sensitive_paths(url):
             if result is not None:
                 results.append(result)
 
+    # Log số lượng path đã quét để user biết tiến trình
+    logger.info(f"Path scanner: đã thử {len(path_items)} đường dẫn")
+    print(f"      → Đã quét {len(path_items)} đường dẫn nhạy cảm")
+
     if not results:
         results.append(make_result(
             module="Path Scanner",

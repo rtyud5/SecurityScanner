@@ -15,17 +15,7 @@ except ImportError:
     HAS_COLORAMA = False
 
 from source.config import SEVERITY_SCORE
-
-
-def _get_score_label(score):
-    """Trả về nhãn đánh giá dựa trên điểm"""
-    if score >= 80:
-        return "TỐT 🟢"
-    if score >= 60:
-        return "TRUNG BÌNH 🟡"
-    if score >= 40:
-        return "KÉM 🟠"
-    return "NGUY HIỂM 🔴"
+from source.utils import get_score_label
 
 
 def generate_html_report(target, results, score, duration, output_file):
@@ -109,7 +99,7 @@ def generate_html_report(target, results, score, duration, output_file):
   <b>Thời lượng:</b> {duration:.1f} giây
 </div>
 
-<div class="score">Security Score: {score}/100 — {_get_score_label(score)}</div>
+<div class="score">Security Score: {score}/100 — {get_score_label(score)}</div>
 
 <div class="summary">
   <div class="badge pass">✅ PASS: {passed}</div>
@@ -151,7 +141,7 @@ def generate_json_report(target, results, score, duration, output_file):
         "scan_time": datetime.now().isoformat(),
         "duration_seconds": round(duration, 2),
         "score": score,
-        "score_label": _get_score_label(score),
+        "score_label": get_score_label(score),
         "summary": {
             "total": len(results),
             "passed": sum(1 for r in results if r["status"] == "PASS"),
@@ -182,7 +172,7 @@ def print_summary(target, results, score, duration):
     print("\n" + "=" * 55)
     print(f"  KẾT QUẢ QUÉT: {target}")
     print("=" * 55)
-    print(f"  Security Score: {score}/100 — {_get_score_label(score)}")
+    print(f"  Security Score: {score}/100 — {get_score_label(score)}")
 
     # In số lượng PASS/FAIL/WARN có màu nếu có colorama
     if HAS_COLORAMA:

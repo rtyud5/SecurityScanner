@@ -30,3 +30,13 @@ Thumbs.db
 # Databases
 *.db
 sqlite.db
+
+# Output files — không commit kết quả scan
+report.html
+report.json
+*.scan.html
+*.scan.json
+
+# Thư mục output nếu có sau này
+reports/
+outputs/

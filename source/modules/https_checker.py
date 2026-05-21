@@ -6,6 +6,7 @@ TLS version có an toàn không.
 
 import ssl
 import socket
+import requests
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -211,7 +212,11 @@ def _check_http_redirect(url, verify_ssl=True):
                 description=f"HTTP không redirect sang HTTPS (status: {r.status_code})",
                 fix="Thêm redirect rule: HTTP → HTTPS (301 permanent redirect)"
             ))
-    except Exception:
-        logger.debug("Không thể kiểm tra HTTP redirect")
+    except requests.exceptions.Timeout:
+        logger.debug("Timeout khi kiểm tra HTTP redirect")
+    except requests.exceptions.ConnectionError:
+        logger.debug("Không thể kết nối để kiểm tra HTTP redirect")
+    except requests.exceptions.RequestException as e:
+        logger.debug(f"Lỗi request khi kiểm tra HTTP redirect: {type(e).__name__}")
 
     return results

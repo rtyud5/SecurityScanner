@@ -39,44 +39,38 @@ def calculate_score(results):
 def run_scan(url, verify_ssl=False):
     """
     Chạy tất cả 7 module quét bảo mật.
-    Hàm này chỉ chứa logic quét — không đụng CLI hay report.
-    Flask hoặc UI khác có thể import và gọi trực tiếp.
-
-    Args:
-        url: URL đã được chuẩn hóa
-        verify_ssl: Có kiểm tra SSL certificate không
-
-    Returns:
-        list[dict]: Danh sách tất cả ScanResult từ 7 modules, hoặc None nếu lỗi kết nối
     """
     all_results = []
 
     # Gửi request ban đầu
-    print("  [1/7] Kiểm tra kết nối...")
+    print("  [1/7] connection check")
     response = safe_get(url, verify_ssl=verify_ssl)
 
     if response is None:
-        print(f"\n  ❌ Không thể kết nối tới {url}")
-        print("  Kiểm tra lại URL và kết nối mạng.")
+        print(f"\n  [ERROR] could not connect to {url}")
         return None
 
     # Chạy từng module
-    print("  [2/7] Kiểm tra HTTP Security Headers...")
+    print("  [2/7] http security headers")
     all_results.extend(check_headers(response))
 
-    print("  [3/7] Kiểm tra Information Disclosure...")
+    print("  [3/7] information disclosure")
     all_results.extend(check_info_disclosure(response))
 
-    print("  [4/7] Kiểm tra HTTPS/TLS...")
+    print("  [4/7] https / tls")
     all_results.extend(check_https(url, verify_ssl=verify_ssl))
 
-    print("  [5/7] Quét đường dẫn nhạy cảm...")
-    all_results.extend(check_sensitive_paths(url, verify_ssl=verify_ssl))
+    print("  [5/7] sensitive path discovery", end="", flush=True)
+    path_results = check_sensitive_paths(url, verify_ssl=verify_ssl)
+    all_results.extend(path_results)
+    # Tìm số lượng FAIL trong path scanner để báo cáo count
+    path_count = sum(1 for r in path_results if r["status"] == "FAIL")
+    print(f"  ->  {path_count} paths")
 
-    print("  [6/7] Kiểm tra Cookie flags...")
+    print("  [6/7] cookie flags")
     all_results.extend(check_cookies(response))
 
-    print("  [7/7] Kiểm tra CORS & Robots.txt...")
+    print("  [7/7] cors + robots.txt")
     all_results.extend(check_cors(url, verify_ssl=verify_ssl))
     all_results.extend(check_robots(url, verify_ssl=verify_ssl))
 
@@ -84,35 +78,34 @@ def run_scan(url, verify_ssl=False):
 
 
 def main():
-    """Entry point CLI — chỉ parse argument, gọi run_scan(), gọi report."""
+    """Entry point CLI."""
 
     # Disclaimer
-    print("=" * 55)
-    print("  WebSec Scanner — Công cụ học tập")
-    print("  Chỉ dùng trên website bạn được phép kiểm tra!")
-    print("=" * 55)
+    print("=" * 60)
+    print("  WebSec Scanner — Educational Audit Tool")
+    print("  Authorized testing only")
+    print("=" * 60)
 
     # Đọc tham số CLI
     parser = argparse.ArgumentParser(
-        description="WebSec Scanner — Quét bảo mật website cơ bản"
+        description="WebSec Scanner — Security Audit Engine"
     )
     parser.add_argument("--url", required=True,
-                        help="URL cần quét (vd: https://example.com)")
+                        help="Target URL")
     parser.add_argument("--output", default="report.html",
-                        help="Tên file báo cáo HTML")
+                        help="HTML report path")
     parser.add_argument("--json", default="report.json",
-                        help="Tên file báo cáo JSON")
+                        help="JSON export path")
     parser.add_argument("--no-verify", action="store_true",
-                        help="Tắt kiểm tra SSL certificate (dùng cho self-signed certs)")
+                        help="Disable SSL verification")
     parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Hiện thông tin debug chi tiết")
+                        help="Verbose logging")
     args = parser.parse_args()
 
     # Cấu hình logging
     log_level = logging.DEBUG if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level, format="  [%(levelname)s] %(message)s")
 
-    # Tắt cảnh báo SSL nếu --no-verify
     verify_ssl = not args.no_verify
     if not verify_ssl:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -121,28 +114,26 @@ def main():
 
     # Validate URL
     if not validate_url(url):
-        print(f"\n  ❌ URL không hợp lệ: {url}")
-        print("  Ví dụ đúng: https://example.com")
+        print(f"\n  [ERROR] invalid url format: {url}")
         return
 
-    print(f"\n  Đang quét: {url}")
-    print("  Vui lòng chờ...\n")
+    print(f"\n  target: {url}")
 
     # Chạy scan
     start_time = datetime.now()
     all_results = run_scan(url, verify_ssl=verify_ssl)
 
     if all_results is None:
-        return  # Không thể kết nối
+        return
 
     # Tính điểm và xuất báo cáo
     duration = (datetime.now() - start_time).total_seconds()
     score = calculate_score(all_results)
 
-    print("\n  Đang tạo báo cáo...")
+    print("\n  generating report...")
     generate_html_report(url, all_results, score, duration, args.output)
     generate_json_report(url, all_results, score, duration, args.json)
 
     print_summary(url, all_results, score, duration)
-    print(f"\n  📄 Báo cáo HTML: {args.output}")
-    print(f"  📋 Báo cáo JSON: {args.json}\n")
+    print(f"\n  Full report : {args.output}")
+    print(f"  JSON export : {args.json}\n")

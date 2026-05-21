@@ -20,30 +20,96 @@ from source.utils import get_score_label
 
 def generate_html_report(target, results, score, duration, output_file):
     """
-    Tạo file báo cáo HTML (Scan Intelligence Report).
+    Tạo file báo cáo chuyên nghiệp (Burp Suite / Nessus style).
     """
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    passed = sum(1 for r in results if r["status"] == "PASS")
-    failed = sum(1 for r in results if r["status"] == "FAIL")
-    warned = sum(1 for r in results if r["status"] == "WARN")
-
-    # Phân loại kết quả theo severity
+    passed_count = sum(1 for r in results if r["status"] == "PASS")
+    
     severity_order = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+    counts = {sev: sum(1 for r in results if r["severity"] == sev and r["status"] == "FAIL") for sev in severity_order}
+    
     grouped_results = {s: [] for s in severity_order}
+    passed_results = []
     for r in results:
-        grouped_results[r["severity"]].append(r)
+        if r["status"] == "PASS":
+            passed_results.append(r)
+        else:
+            grouped_results[r["severity"]].append(r)
 
-    cards_html = ""
+    rating = get_score_label(score)
+    
+    # CSS & JS content
+    styles = """
+    :root { --bg: #ffffff; --text: #1a1a1a; --border: #e0e0e0; --header-bg: #1a1a1a; --header-text: #ffffff; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.5; color: var(--text); background: var(--bg); margin: 0; padding: 0; }
+    .container { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
+    .header-bar { background: var(--header-bg); color: var(--header-text); padding: 10px 20px; font-weight: 600; font-size: 16px; border-bottom: 3px solid #333; }
+    
+    .meta-box { margin: 30px 0; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+    .score-display { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+    .rating { font-size: 16px; color: #555; }
+    
+    .summary-table { width: 400px; border-collapse: collapse; margin-top: 20px; font-family: monospace; }
+    .summary-table td { padding: 4px 8px; border-bottom: 1px solid #f0f0f0; }
+    .summary-table td:last-child { text-align: right; }
+    
+    .finding-group-title { margin: 40px 0 20px; font-size: 18px; border-left: 4px solid var(--header-bg); padding-left: 12px; }
+    
+    .card { border: 1px solid var(--border); border-top: none; margin-bottom: 30px; border-radius: 0 0 3px 3px; background: #fff; }
+    .card-header { background: var(--header-bg); color: var(--header-text); padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 13px; }
+    .card-header .title { flex-grow: 1; }
+    .card-header .conf { font-family: monospace; font-size: 12px; border-left: 1px solid #444; padding-left: 15px; margin-left: 15px; }
+    .card-body { padding: 20px; }
+    
+    /* Severity left borders */
+    .card.critical { border-left: 3px solid #cc0000; background: #fdf0f0; }
+    .card.high { border-left: 3px solid #cc4400; background: #fdf5f0; }
+    .card.medium { border-left: 3px solid #997700; background: #fdfaf0; }
+    .card.low { border-left: 3px solid #557700; background: #fafdf0; }
+    .card.info { border-left: 3px solid #aaaaaa; background: #f5f5f5; }
+    .card.pass { border-left: 3px solid #555555; background: #f5f5f5; }
+
+    .section-title { font-weight: 600; color: #333; margin-top: 15px; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .section-content { margin-left: 10px; margin-bottom: 20px; }
+    
+    ul { margin: 5px 0; padding-left: 20px; }
+    li { margin-bottom: 4px; }
+    
+    code-block { display: block; background: #fff; border: 1px solid #ddd; padding: 12px; margin: 10px 0; overflow-x: auto; font-family: "SF Mono", "Consolas", monospace; font-size: 13px; white-space: pre-wrap; position: relative; }
+    .copy-btn { position: absolute; top: 8px; right: 8px; border: 1px solid #ccc; background: white; font-size: 12px; padding: 2px 8px; cursor: pointer; border-radius: 2px; }
+    .copy-btn:hover { background: #f0f0f0; }
+    
+    .conf-bar-bg { width: 100px; height: 6px; background: #ddd; display: inline-block; vertical-align: middle; margin-left: 10px; border-radius: 3px; overflow: hidden; }
+    .conf-bar-fill { height: 100%; background: #1a1a1a; }
+    
+    .pass-table { width: 100%; border-collapse: collapse; margin-top: 50px; font-size: 12px; color: #666; }
+    .pass-table th { text-align: left; border-bottom: 2px solid var(--border); padding: 8px; background: #f9f9f9; }
+    .pass-table td { border-bottom: 1px solid #f0f0f0; padding: 8px; }
+    
+    .footer { margin-top: 100px; padding: 20px 0; border-top: 1px solid var(--border); font-family: monospace; font-size: 11px; color: #888; text-align: center; }
+    """
+    
+    script = """
+    function copyCmd(btn) {
+        var code = btn.nextSibling.textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            var oldText = btn.innerText;
+            btn.innerText = "copied";
+            setTimeout(() => { btn.innerText = oldText; }, 1500);
+        });
+    }
+    """
+
+    findings_html = ""
     for sev in severity_order:
         items = grouped_results[sev]
         if not items: continue
         
-        cards_html += f"<h2 class='sev-title {sev.lower()}'>{sev} Findings</h2>"
+        findings_html += f"<div class='finding-group-title'>{sev} FINDINGS</div>"
         
         for r in items:
-            status_cls = r["status"].lower()
+            sev_lvl = r["severity"].lower()
             conf = r.get("confidence", 0)
-            conf_reason = html_module.escape(r.get("confidence_reason", ""))
             what = html_module.escape(r.get("what_found", ""))
             module = html_module.escape(r["module"])
             check = html_module.escape(r["check"])
@@ -54,143 +120,95 @@ def generate_html_report(target, results, score, duration, output_file):
             intel = html_module.escape(exp.get("extra_intel", ""))
             surface = html_module.escape(exp.get("attack_surface", ""))
             
-            exp_html = ""
-            if leaked or intel or surface:
-                leaked_list = "".join([f"<li><code>{html_module.escape(str(l))}</code></li>" for l in leaked])
-                leaked_html = f"<b>Dữ liệu lộ:</b><ul>{leaked_list}</ul>" if leaked else ""
-                exp_html = f"""
-                <details class="exp-details">
-                    <summary>🔍 Chi tiết lộ & Intelligence</summary>
-                    <div class="exp-content">
-                        {leaked_html}
-                        {f'<p><b>Thông tin thêm:</b> {intel}</p>' if intel else ''}
-                        {f'<p><b>Attack Surface:</b> {surface}</p>' if surface else ''}
-                    </div>
-                </details>
-                """
-
+            leaked_items = "".join([f"<li>{html_module.escape(str(l))}</li>" for l in leaked])
+            leaked_html = f"<div>Leaked data:<ul>{leaked_items}</ul></div>" if leaked else ""
+            
             # Manual Test
             manual = r.get("manual_test", [])
-            manual_html = ""
-            if manual:
-                steps = ""
-                for s in manual:
-                    steps += f"""
-                    <div class="step">
-                        <div class="step-head">Bước {s['step']}: {html_module.escape(s['action'])}</div>
-                        <div class="step-cmd">
-                            <code>{html_module.escape(s['command'])}</code>
-                            <button onclick="copyCmd(this)">Sao chép</button>
-                        </div>
-                        <div class="step-exp">Kỳ vọng: <i>{html_module.escape(s['expected'])}</i></div>
-                    </div>
-                    """
-                manual_html = f"""
-                <details class="manual-details">
-                    <summary>🛠️ Xác minh thủ công ({len(manual)} bước)</summary>
-                    <div class="manual-content">{steps}</div>
-                </details>
+            manual_steps = ""
+            for s in manual:
+                manual_steps += f"""
+                <div style="margin-bottom:15px;">
+                    <div style="font-weight:600; font-size:12px;">Step {s['step']} — {html_module.escape(s['action'])}</div>
+                    <code-block><button class="copy-btn" onclick="copyCmd(this)">copy</button><span>{html_module.escape(s['command'])}</span></code-block>
+                    <div style="font-size:12px; color:#666;">Expected: {html_module.escape(s['expected'])}</div>
+                </div>
                 """
 
-            cards_html += f"""
-            <div class="card {status_cls}">
+            findings_html += f"""
+            <div class="card {sev_lvl}">
                 <div class="card-header">
-                    <span class="mod-name">[{module}] {check}</span>
-                    <span class="conf-badge" title="{conf_reason}">Confidence: {conf}%</span>
+                    <div class="title">[{sev}] {module} — {check}</div>
+                    <div class="conf">conf: {conf}% <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:{conf}%"></div></div></div>
                 </div>
                 <div class="card-body">
-                    <p class="what-found">{what}</p>
-                    {exp_html}
-                    {manual_html}
+                    <div class="section-title">What was found</div>
+                    <div class="section-content">{what}</div>
+                    
+                    <div class="section-title">Exposure detail</div>
+                    <div class="section-content">
+                        {leaked_html}
+                        {f'<div>Intel: {intel}</div>' if intel else ''}
+                        {f'<div>Attack scope: {surface}</div>' if surface else ''}
+                    </div>
+                    
+                    {f'<div class="section-title">Manual verification</div><div class="section-content">{manual_steps}</div>' if manual_steps else ''}
                 </div>
             </div>
             """
 
-    safe_target = html_module.escape(target)
+    pass_rows = ""
+    for r in passed_results:
+        pass_rows += f"<tr><td>{html_module.escape(r['module'])}</td><td>{html_module.escape(r['check'])}</td><td>[PASS]</td></tr>"
 
     html_content = f"""<!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>WebSec Intelligence Report — {safe_target}</title>
-<style>
-  :root {{ --critical: #c0392b; --high: #e74c3c; --medium: #e67e22; --low: #f39c12; --info: #3498db; --pass: #27ae60; }}
-  body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; color: #2c3e50; background: #f9f9f9; }}
-  h1 {{ color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }}
-  .meta {{ background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; font-size: 0.9em; line-height: 1.6; }}
-  .score-bar {{ background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-  .score-val {{ font-size: 3em; font-weight: bold; color: var(--info); }}
-  .summary {{ display: flex; gap: 10px; margin-bottom: 30px; justify-content: center; }}
-  .badge {{ padding: 8px 15px; border-radius: 20px; font-weight: bold; color: white; }}
-  .bg-pass {{ background: var(--pass); }} .bg-fail {{ background: var(--high); }} .bg-warn {{ background: var(--medium); }}
-  
-  .sev-title {{ margin-top: 40px; padding: 5px 15px; border-radius: 4px; color: white; text-transform: uppercase; font-size: 1em; letter-spacing: 1px; }}
-  .critical {{ background: var(--critical); }} .high {{ background: var(--high); }} .medium {{ background: var(--medium); }} .low {{ background: var(--low); }} .info {{ background: var(--info); }}
-  
-  .card {{ background: white; border-radius: 8px; margin: 15px 0; border-left: 5px solid #ccc; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow: hidden; }}
-  .card.fail {{ border-left-color: var(--high); }}
-  .card.warn {{ border-left-color: var(--medium); }}
-  .card.pass {{ border-left-color: var(--pass); }}
-  
-  .card-header {{ background: #fcfcfc; padding: 12px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }}
-  .mod-name {{ font-weight: bold; font-size: 1.1em; }}
-  .conf-badge {{ font-size: 0.75em; background: #eee; padding: 2px 8px; border-radius: 10px; color: #666; cursor: help; }}
-  
-  .card-body {{ padding: 20px; }}
-  .what-found {{ font-size: 1.05em; line-height: 1.5; margin-bottom: 15px; }}
-  
-  details {{ background: #f8f9fa; border-radius: 6px; margin-top: 10px; border: 1px solid #eee; }}
-  summary {{ padding: 10px 15px; cursor: pointer; font-weight: bold; font-size: 0.9em; outline: none; }}
-  .exp-content, .manual-content {{ padding: 15px; border-top: 1px solid #eee; font-size: 0.9em; }}
-  
-  .step {{ margin-bottom: 15px; padding-left: 10px; border-left: 2px solid #ddd; }}
-  .step-head {{ font-weight: bold; margin-bottom: 5px; }}
-  .step-cmd {{ background: #2c3e50; color: #ecf0f1; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }}
-  .step-cmd code {{ font-family: 'Consolas', monospace; word-break: break-all; }}
-  .step-cmd button {{ background: #34495e; border: none; color: white; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.8em; }}
-  .step-cmd button:hover {{ background: #4e6a85; }}
-  .step-exp {{ color: #7f8c8d; font-size: 0.85em; }}
-  
-  .disclaimer {{ margin-top: 60px; padding: 20px; background: #fff5f5; border: 1px solid #ffcccc; border-radius: 8px; font-size: 0.85em; text-align: center; }}
-</style>
-<script>
-function copyCmd(btn) {{
-    var cmd = btn.parentNode.querySelector('code').innerText;
-    navigator.clipboard.writeText(cmd).then(() => {{
-        var oldText = btn.innerText;
-        btn.innerText = "Đã chép!";
-        btn.style.background = "#27ae60";
-        setTimeout(() => {{ btn.innerText = oldText; btn.style.background = "#34495e"; }}, 1500);
-    }});
-}}
-</script>
+<style>{styles}</style>
+<script>{script}</script>
+<title>Assessment Report — {html_module.escape(target)}</title>
 </head>
 <body>
-<h1>🔍 WebSec Intelligence Report</h1>
-<div class="meta">
-  <b>🎯 Mục tiêu:</b> {safe_target}<br>
-  <b>🕒 Thời gian quét:</b> {now}<br>
-  <b>⏱️ Thời lượng:</b> {duration:.1f} giây
-</div>
+<div class="header-bar">WebSec Scanner — v2.5 (Security Audit Engine)</div>
+<div class="container">
+    <div class="meta-box">
+        <div class="score-display">SCORE: {score} / 100</div>
+        <div class="rating">Rating: {rating}</div>
+        
+        <div style="margin-top:20px; color:#666;">
+            Target: {html_module.escape(target)}<br>
+            Date: {now}<br>
+            Duration: {duration:.1f}s
+        </div>
 
-<div class="score-bar">
-  <div style="font-size: 0.9em; color: #666;">Security Score</div>
-  <div class="score-val">{score}/100</div>
-  <div style="font-weight: bold;">{get_score_label(score)}</div>
-</div>
+        <table class="summary-table">
+            <tr><td>CRITICAL</td><td>{counts['CRITICAL']} finding(s)</td></tr>
+            <tr><td>HIGH</td><td>{counts['HIGH']} finding(s)</td></tr>
+            <tr><td>MEDIUM</td><td>{counts['MEDIUM']} finding(s)</td></tr>
+            <tr><td>LOW</td><td>{counts['LOW']} finding(s)</td></tr>
+            <tr><td>PASS</td><td>{passed_count} check(s) passed</td></tr>
+        </table>
+    </div>
 
-<div class="summary">
-  <div class="badge bg-pass">✅ PASS: {passed}</div>
-  <div class="badge bg-fail">❌ FAIL: {failed}</div>
-  <div class="badge bg-warn">⚠️ WARN: {warned}</div>
-</div>
+    {findings_html}
 
-{cards_html}
+    <details style="margin-top:80px;">
+        <summary style="cursor:pointer; font-weight:600; color:#888;">VIEW PASSED CHECKS ({passed_count})</summary>
+        <table class="pass-table">
+            <thead>
+                <tr><th>Module</th><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+                {pass_rows}
+            </tbody>
+        </table>
+    </details>
 
-<div class="disclaimer">
-  ⚠️ <b>BÁO CÁO CỰC KỲ NHẠY CẢM:</b> Thông tin trong báo cáo này được thiết kế để phục vụ việc xác minh lỗ hổng thủ công. <br>
-  TUYỆT ĐỐI không chia sẻ báo cáo này cho bên không liên quan. <br>
-  <i>Chỉ sử dụng cho mục đích bảo mật hợp pháp.</i>
+    <div class="footer">
+        CONFIDENTIAL SECURITY ASSESSMENT REPORT<br>
+        Generated by WebSec Scanner. Educational purposes only.
+    </div>
 </div>
 </body>
 </html>"""
@@ -223,58 +241,46 @@ def generate_json_report(target, results, score, duration, output_file):
 
 def print_summary(target, results, score, duration):
     """
-    In tóm tắt kết quả ra terminal (Intelligence Summary).
+    In tóm tắt kết quả ra terminal (Professional Audit Format).
     """
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     passed = sum(1 for r in results if r["status"] == "PASS")
-    failed = sum(1 for r in results if r["status"] == "FAIL")
-    warned = sum(1 for r in results if r["status"] == "WARN")
+    crit = sum(1 for r in results if r["severity"] == "CRITICAL" and r["status"] == "FAIL")
+    high = sum(1 for r in results if r["severity"] == "HIGH" and r["status"] == "FAIL")
+    med = sum(1 for r in results if r["severity"] == "MEDIUM" and r["status"] == "FAIL")
+    low = sum(1 for r in results if r["severity"] == "LOW" and r["status"] == "FAIL")
+    
+    label = get_score_label(score)
 
-    print("\n" + "=" * 60)
-    print(f"  WEBSEC INTELLIGENCE REPORT: {target}")
-    print("=" * 60)
-    print(f"  Security Score: {score}/100 — {get_score_label(score)}")
+    print("\n  ================================================================")
+    print("  WebSec Scanner — Security Assessment Report")
+    print(f"  Target  : {target}")
+    print(f"  Started : {now}")
+    print(f"  Duration: {duration:.1f}s")
+    print("  ================================================================")
+    print(f"\n  SCORE: {score} / 100  [{label}]")
+    print("\n  FINDINGS SUMMARY")
+    print("  ----------------")
+    print(f"  CRITICAL    {crit}")
+    print(f"  HIGH        {high}")
+    print(f"  MEDIUM      {med}")
+    print(f"  LOW         {low}")
+    print(f"  PASS       {passed}")
 
-    if HAS_COLORAMA:
-        pass_str = f"{Fore.GREEN}✅ PASS: {passed}{Style.RESET_ALL}"
-        fail_str = f"{Fore.RED}❌ FAIL: {failed}{Style.RESET_ALL}"
-        warn_str = f"{Fore.YELLOW}⚠️  WARN: {warned}{Style.RESET_ALL}"
-        print(f"  {pass_str}   {fail_str}   {warn_str}")
-    else:
-        print(f"  ✅ PASS: {passed}   ❌ FAIL: {failed}   ⚠️  WARN: {warned}")
-
-    print(f"  Thời gian: {duration:.1f}s")
-    print("-" * 60)
-
-    issues = [r for r in results if r["status"] in ("FAIL", "WARN")]
-    issues.sort(key=lambda x: list(SEVERITY_SCORE.keys()).index(x["severity"]))
-
-    if issues:
-        print("  FINDINGS & EXPOSURES:")
-        for r in issues:
+    # Hiển thị CRITICAL / HIGH findings
+    high_issues = [r for r in results if r["status"] == "FAIL" and r["severity"] in ("CRITICAL", "HIGH")]
+    if high_issues:
+        print("\n  CRITICAL / HIGH FINDINGS")
+        print("  ------------------------")
+        for r in high_issues:
+            sev = r["severity"]
             conf = r.get("confidence", 0)
             msg = r.get("what_found", r.get("description", ""))
+            line = f"  [{sev:8}]  {r['module']:15}  {msg[:50]} (confidence: {conf}%)"
             
             if HAS_COLORAMA:
-                if r["severity"] == "CRITICAL":
-                    icon = f"{Fore.RED}🔴{Style.RESET_ALL}"
-                    sev = f"{Fore.RED}CRITICAL{Style.RESET_ALL}"
-                elif r["severity"] == "HIGH":
-                    icon = f"{Fore.RED}🟠{Style.RESET_ALL}"
-                    sev = f"{Fore.RED}HIGH    {Style.RESET_ALL}"
-                elif r["severity"] == "MEDIUM":
-                    icon = f"{Fore.YELLOW}🟡{Style.RESET_ALL}"
-                    sev = f"{Fore.YELLOW}MEDIUM  {Style.RESET_ALL}"
-                else:
-                    icon = "⚪"
-                    sev = f"{r['severity']:8}"
-                
-                print(f"  {icon} [{sev}] Conf: {conf:>3}% | {msg[:70]}...")
+                print(f"{Fore.RED}{line}{Style.RESET_ALL}")
             else:
-                icon = "🔴" if r["severity"] == "CRITICAL" else \
-                       "🟠" if r["severity"] == "HIGH" else \
-                       "🟡" if r["severity"] == "MEDIUM" else "⚪"
-                print(f"  {icon} [{r['severity']:8}] Conf: {conf:>3}% | {msg[:70]}...")
-    else:
-        print("  Không phát hiện lộ lọt thông tin nghiêm trọng.")
+                print(line)
 
-    print("=" * 60)
+    print("\n  ================================================================")

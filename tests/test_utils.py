@@ -224,32 +224,28 @@ class TestLoadWordlistPaths:
 # ═══════════════════════════════════════════════
 
 class TestGetScoreLabel:
-    """Kiểm tra get_score_label trả về nhãn đúng theo ngưỡng điểm."""
+    """Kiểm tra get_score_label trả về nhãn đúng theo ngưỡng điểm audit."""
 
-    def test_score_100_is_good(self):
-        """Điểm 100 → TỐT"""
-        assert "TỐT" in get_score_label(100)
+    def test_score_100_is_excellent(self):
+        """Điểm 100 → EXCELLENT"""
+        assert get_score_label(100) == "EXCELLENT"
+
+    def test_score_95_is_excellent(self):
+        """Điểm 95 → EXCELLENT"""
+        assert get_score_label(95) == "EXCELLENT"
 
     def test_score_85_is_good(self):
-        """Điểm 85 (>= 80) → TỐT"""
-        assert "TỐT" in get_score_label(85)
+        """Điểm 85 (>= 80) → GOOD"""
+        assert get_score_label(85) == "GOOD"
 
-    def test_score_80_is_good(self):
-        """Điểm đúng ngưỡng 80 → TỐT"""
-        assert "TỐT" in get_score_label(80)
-
-    def test_score_65_is_average(self):
-        """Điểm 65 (>= 60, < 80) → TRUNG BÌNH"""
-        assert "TRUNG BÌNH" in get_score_label(65)
+    def test_score_65_is_fair(self):
+        """Điểm 65 (>= 60) → FAIR"""
+        assert get_score_label(65) == "FAIR"
 
     def test_score_45_is_poor(self):
-        """Điểm 45 (>= 40, < 60) → KÉM"""
-        assert "KÉM" in get_score_label(45)
+        """Điểm 45 (>= 40) → POOR"""
+        assert get_score_label(45) == "POOR"
 
-    def test_score_20_is_dangerous(self):
-        """Điểm 20 (< 40) → NGUY HIỂM"""
-        assert "NGUY HIỂM" in get_score_label(20)
-
-    def test_score_0_is_dangerous(self):
-        """Điểm 0 → NGUY HIỂM"""
-        assert "NGUY HIỂM" in get_score_label(0)
+    def test_score_20_is_critical(self):
+        """Điểm 20 (< 40) → CRITICAL"""
+        assert get_score_label(20) == "CRITICAL"

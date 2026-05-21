@@ -168,13 +168,14 @@ def make_result(module, check_name, status, severity,
 
 def get_score_label(score):
     """
-    Trả về nhãn đánh giá dựa trên điểm bảo mật.
-    Hàm dùng chung cho engine.py và report/generator.py — tránh duplicate.
+    Trả về nhãn đánh giá dựa trên điểm bảo mật (chuẩn SANS/audit).
     """
+    if score >= 90:
+        return "EXCELLENT"
     if score >= 80:
-        return "TỐT 🟢"
+        return "GOOD"
     if score >= 60:
-        return "TRUNG BÌNH 🟡"
+        return "FAIR"
     if score >= 40:
-        return "KÉM 🟠"
-    return "NGUY HIỂM 🔴"
+        return "POOR"
+    return "CRITICAL"

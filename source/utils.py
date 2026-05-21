@@ -120,25 +120,49 @@ def load_wordlist_paths(wordlist_file=None):
         return None
 
 
-def make_result(module, check_name, status, severity, description, fix=""):
+def make_result(module, check_name, status, severity, 
+                what_found="", 
+                exposure_detail=None, 
+                confidence=0, 
+                confidence_reason="", 
+                manual_test=None,
+                description="", 
+                fix=""):
     """
-    Tạo dict kết quả chuẩn cho một lần kiểm tra.
+    Tạo dict kết quả chuẩn (Scan Intelligence) cho một lần kiểm tra.
+    Duy trì description/fix làm alias để tương thích với các module/test cũ.
 
     Args:
         module: Tên module thực hiện (vd: "Headers", "HTTPS")
         check_name: Tên kiểm tra cụ thể (vd: "X-Frame-Options")
         status: PASS / FAIL / WARN / INFO
         severity: CRITICAL / HIGH / MEDIUM / LOW / INFO
-        description: Mô tả chi tiết vấn đề
-        fix: Khuyến nghị cách sửa (tùy chọn)
+        what_found: Mô tả chi tiết những gì phát hiện được (quan sát thực tế)
+        exposure_detail: Dictionary chứa thông tin tình báo (leaked_data, extra_intel, attack_surface)
+        confidence: Độ tin cậy (0-100)
+        confidence_reason: Lý do cho điểm tin cậy
+        manual_test: Danh sách các bước xác minh thủ công
     """
+    # Xử lý backward compatibility: Nếu dùng description cũ thì gán vào what_found
+    if description and not what_found:
+        what_found = description
+
     return {
         "module": module,
         "check": check_name,
         "status": status,
         "severity": severity,
-        "description": description,
-        "fix": fix
+        "what_found": what_found,
+        "description": what_found,  # Alias cho test cũ
+        "fix": "",                  # Để trống vì không còn fix advice
+        "exposure_detail": exposure_detail or {
+            "leaked_data": [],
+            "extra_intel": "",
+            "attack_surface": ""
+        },
+        "confidence": confidence,
+        "confidence_reason": confidence_reason,
+        "manual_test": manual_test or []
     }
 
 

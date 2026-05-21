@@ -59,14 +59,14 @@ class TestHeaderScanner:
         fail_results = [r for r in results if r["status"] == "FAIL"]
         assert len(fail_results) == 5
 
-    def test_fail_results_have_fix_suggestion(self, make_mock_response):
-        """Mỗi FAIL phải có trường fix không rỗng (gợi ý cách sửa)"""
+    def test_fail_results_have_attack_surface(self, make_mock_response):
+        """Mỗi FAIL phải có thông tin attack surface"""
         response = make_mock_response(headers={})
         results = check_headers(response)
 
         for r in results:
             if r["status"] == "FAIL":
-                assert r["fix"] != "", f"FAIL cho {r['check']} thiếu fix suggestion"
+                assert r["exposure_detail"]["attack_surface"] != "", f"FAIL cho {r['check']} thiếu attack surface intel"
 
     def test_results_have_correct_module_name(self, make_mock_response):
         """Tất cả results phải có module = 'Headers'"""

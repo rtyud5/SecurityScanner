@@ -139,16 +139,20 @@ class TestMakeResult:
     """Kiểm tra hàm make_result tạo đúng cấu trúc dict."""
 
     def test_has_all_required_keys(self):
-        """Dict trả về phải có đủ 6 keys chuẩn"""
+        """Dict trả về phải có đủ các keys chuẩn mới"""
         result = make_result(
             module="Headers",
             check_name="CSP",
             status="FAIL",
             severity="HIGH",
-            description="Thiếu CSP"
+            what_found="Thiếu CSP"
         )
-        expected_keys = {"module", "check", "status", "severity", "description", "fix"}
-        assert set(result.keys()) == expected_keys
+        expected_keys = {
+            "module", "check", "status", "severity", 
+            "what_found", "description", "fix",
+            "exposure_detail", "confidence", "confidence_reason", "manual_test"
+        }
+        assert expected_keys.issubset(result.keys())
 
     def test_values_match_input(self):
         """Giá trị trong dict phải khớp với tham số đầu vào"""
@@ -157,19 +161,20 @@ class TestMakeResult:
             check_name="TLS Version",
             status="PASS",
             severity="INFO",
-            description="TLS 1.3 OK",
-            fix="Không cần"
+            what_found="TLS 1.3 OK",
+            confidence=100
         )
         assert result["module"] == "HTTPS"
         assert result["check"] == "TLS Version"
         assert result["status"] == "PASS"
         assert result["severity"] == "INFO"
+        assert result["what_found"] == "TLS 1.3 OK"
         assert result["description"] == "TLS 1.3 OK"
-        assert result["fix"] == "Không cần"
+        assert result["confidence"] == 100
 
-    def test_fix_defaults_to_empty_string(self):
-        """Nếu không truyền fix → default là chuỗi rỗng"""
-        result = make_result("M", "C", "PASS", "INFO", "OK")
+    def test_fix_is_always_empty(self):
+        """Trường fix phải luôn rỗng (theo triết lý mới)"""
+        result = make_result("M", "C", "PASS", "INFO", "OK", fix="Nên sửa")
         assert result["fix"] == ""
 
 

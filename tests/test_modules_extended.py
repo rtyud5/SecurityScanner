@@ -20,7 +20,7 @@ class TestInfoScanner:
         server_result = next(r for r in results if r["check"] == "Server Header")
         assert server_result["status"] == "FAIL"
         assert server_result["severity"] == "MEDIUM"
-        assert "Apache/2.4.1" in server_result["description"]
+        assert "Apache/2.4.1" in server_result["what_found"]
 
     def test_server_header_without_version(self, make_mock_response):
         """Header Server không chứa version → WARN LOW"""
@@ -115,7 +115,7 @@ class TestCorsChecker:
         results = check_cors("https://example.com")
         cors_result = next(r for r in results if r["check"] == "CORS Policy")
         assert cors_result["status"] == "PASS"
-        assert "Không có CORS header" in cors_result["description"]
+        assert "Không có CORS header" in cors_result["what_found"]
 
     @patch("source.modules.cors_checker.safe_get")
     def test_wildcard_origin(self, mock_get, make_mock_response):
@@ -147,7 +147,7 @@ class TestCorsChecker:
         cors_result = next(r for r in results if r["check"] == "CORS Policy")
         assert cors_result["status"] == "FAIL"
         assert cors_result["severity"] == "HIGH"
-        assert "phản chiếu Origin" in cors_result["description"]
+        assert "phản chiếu (reflect) Origin" in cors_result["what_found"]
 
     @patch("source.modules.cors_checker.safe_get")
     def test_safe_specific_origin(self, mock_get, make_mock_response):
@@ -201,20 +201,20 @@ class TestCorsChecker:
         assert res["severity"] == "HIGH"
 
     @patch("source.modules.cors_checker.safe_get")
-    def test_reflected_origin_fix_not_empty(self, mock_get, make_mock_response):
-        """FAIL reflected origin phải có fix suggestion"""
+    def test_reflected_origin_intel_not_empty(self, mock_get, make_mock_response):
+        """FAIL reflected origin phải có thông tin intel"""
         mock_get.return_value = make_mock_response(headers={"Access-Control-Allow-Origin": "https://evil-attacker-site.com"})
         results = check_cors("https://example.com")
         res = next(r for r in results if r["check"] == "CORS Policy")
-        assert res["fix"] != ""
+        assert res["exposure_detail"]["attack_surface"] != ""
 
     @patch("source.modules.cors_checker.safe_get")
-    def test_cors_policy_description_contains_origin(self, mock_get, make_mock_response):
-        """Description của PASS nên chứa origin cụ thể"""
+    def test_cors_policy_what_found_contains_origin(self, mock_get, make_mock_response):
+        """what_found của PASS nên chứa origin cụ thể"""
         mock_get.return_value = make_mock_response(headers={"Access-Control-Allow-Origin": "https://safe.com"})
         results = check_cors("https://example.com")
         res = next(r for r in results if r["check"] == "CORS Policy")
-        assert "https://safe.com" in res["description"]
+        assert "https://safe.com" in res["what_found"]
 
     @patch("source.modules.cors_checker.safe_get")
     def test_safe_get_returns_none(self, mock_get):

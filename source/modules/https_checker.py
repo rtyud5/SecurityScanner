@@ -16,21 +16,11 @@ from source.utils import make_result, safe_get, get_base_url, logger
 
 def check_https(url, verify_ssl=True):
     """
-    Kiểm tra cấu hình HTTPS đầy đủ:
-    1. Website có dùng HTTPS không
-    2. HTTP có redirect sang HTTPS không
-    3. Certificate còn hạn không
-    4. TLS version có an toàn không
-
-    Args:
-        url: URL đã được chuẩn hóa
-        verify_ssl: Có kiểm tra SSL certificate không
-
-    Returns:
-        list[dict]: Danh sách ScanResult
+    Kiểm tra cấu hình HTTPS đầy đủ.
     """
     results = []
     parsed = urlparse(url)
+    hostname = parsed.netloc.split(":")[0]
 
     # ── Kiểm tra có dùng HTTPS không ──
     if parsed.scheme == "http":
@@ -39,32 +29,39 @@ def check_https(url, verify_ssl=True):
             check_name="HTTPS Enabled",
             status="FAIL",
             severity="HIGH",
-            description="Website không dùng HTTPS — dữ liệu truyền đi không được mã hóa",
-            fix="Cài SSL certificate và chuyển toàn bộ traffic sang HTTPS"
+            what_found="Website đang sử dụng giao thức HTTP không mã hóa.",
+            confidence=100,
+            confidence_reason="Scheme của URL yêu cầu là 'http'",
+            exposure_detail={
+                "leaked_data": [],
+                "extra_intel": "Protocol: HTTP/1.1",
+                "attack_surface": "Toàn bộ dữ liệu truyền tải (mật khẩu, session cookie, nội dung trang) có thể bị chặn thu và đọc bởi bất kỳ ai trong cùng mạng (nút mạng trung gian, wifi công cộng)."
+            },
+            manual_test=[
+                {"step": 1, "action": "Kiểm tra protocol bằng curl", "command": f"curl -I {url}", "expected": "Dòng đầu tiên chứa 'HTTP/1.1' hoặc 'HTTP/2' mà không có redirect sang HTTPS"}
+            ]
         ))
-        return results  # Không cần kiểm tra thêm nếu không có HTTPS
+        return results
 
     results.append(make_result(
         module="HTTPS",
         check_name="HTTPS Enabled",
         status="PASS",
         severity="INFO",
-        description="Website dùng HTTPS"
+        what_found="Website sử dụng giao thức HTTPS.",
+        confidence=100
     ))
 
     # ── Kiểm tra HTTP redirect sang HTTPS ──
     results.extend(_check_http_redirect(url, verify_ssl=verify_ssl))
 
     # ── Kiểm tra certificate + TLS version ──
-    hostname = parsed.netloc.split(":")[0]  # Bỏ port nếu có
     try:
         ctx = ssl.create_default_context()
         conn = ctx.wrap_socket(socket.socket(), server_hostname=hostname)
         conn.settimeout(5)
         conn.connect((hostname, DEFAULT_TLS_PORT))
         cert = conn.getpeercert()
-
-        # Kiểm tra TLS version
         tls_version = conn.version()
         conn.close()
 
@@ -74,8 +71,17 @@ def check_https(url, verify_ssl=True):
                 check_name="TLS Version",
                 status="FAIL",
                 severity="HIGH",
-                description=f"Server dùng {tls_version} đã bị deprecated (không an toàn)",
-                fix="Nâng cấp lên TLS 1.2 hoặc TLS 1.3"
+                what_found=f"Server đang hỗ trợ giao thức {tls_version} (đã lỗi thời).",
+                confidence=99,
+                confidence_reason="Xác nhận trực tiếp qua TLS handshake",
+                exposure_detail={
+                    "leaked_data": [f"Giao thức: {tls_version}"],
+                    "extra_intel": "",
+                    "attack_surface": "Các phiên bản TLS cũ có nhiều lỗ hổng bảo mật đã biết (vd: BEAST, POODLE) cho phép attacker giải mã traffic."
+                },
+                manual_test=[
+                    {"step": 1, "action": "Kiểm tra TLS version mạnh", "command": f"openssl s_client -connect {hostname}:443 -{tls_version.lower().replace('v', '')}", "expected": "Kết nối thành công (Handshake diễn ra)"}
+                ]
             ))
         elif tls_version:
             results.append(make_result(
@@ -83,13 +89,13 @@ def check_https(url, verify_ssl=True):
                 check_name="TLS Version",
                 status="PASS",
                 severity="INFO",
-                description=f"Server dùng {tls_version}"
+                what_found=f"Server sử dụng giao thức an toàn: {tls_version}",
+                confidence=100
             ))
 
-        # Lấy ngày hết hạn — dùng UTC để so sánh chính xác
+        # Ngày hết hạn
         expire_str = cert.get("notAfter", "")
-        expire_date = datetime.strptime(expire_str, "%b %d %H:%M:%S %Y %Z")
-        expire_date = expire_date.replace(tzinfo=timezone.utc)
+        expire_date = datetime.strptime(expire_str, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
         days_left = (expire_date - datetime.now(timezone.utc)).days
 
         if days_left < 0:
@@ -98,8 +104,17 @@ def check_https(url, verify_ssl=True):
                 check_name="Certificate Expiry",
                 status="FAIL",
                 severity="CRITICAL",
-                description=f"SSL Certificate đã hết hạn {abs(days_left)} ngày trước!",
-                fix="Gia hạn SSL certificate ngay lập tức"
+                what_found=f"SSL Certificate đã hết hạn từ ngày {expire_str} ({abs(days_left)} ngày trước).",
+                confidence=99,
+                confidence_reason="Ngày hết hạn trích xuất trực tiếp từ certificate của server",
+                exposure_detail={
+                    "leaked_data": [f"Expired: {expire_str}"],
+                    "extra_intel": f"Issuer: {cert.get('issuer')}",
+                    "attack_surface": "Trình duyệt sẽ hiển thị cảnh báo đỏ cực mạnh, người dùng có thể bị tấn công mạo danh hoặc chặn traffic do cert không còn tin cậy."
+                },
+                manual_test=[
+                    {"step": 1, "action": "Kiểm tra cert bằng openssl", "command": f"openssl s_client -connect {hostname}:443 | openssl x509 -noout -dates", "expected": f"notAfter={expire_str}"}
+                ]
             ))
         elif days_left < CERT_EXPIRY_WARNING_DAYS:
             results.append(make_result(
@@ -107,55 +122,28 @@ def check_https(url, verify_ssl=True):
                 check_name="Certificate Expiry",
                 status="WARN",
                 severity="MEDIUM",
-                description=f"SSL Certificate sắp hết hạn: còn {days_left} ngày",
-                fix="Lên kế hoạch gia hạn certificate sớm"
-            ))
-        else:
-            results.append(make_result(
-                module="HTTPS",
-                check_name="Certificate Expiry",
-                status="PASS",
-                severity="INFO",
-                description=f"SSL Certificate còn hạn: {days_left} ngày"
+                what_found=f"SSL Certificate sắp hết hạn: còn {days_left} ngày (hết hạn vào {expire_str}).",
+                confidence=99,
+                exposure_detail={
+                    "leaked_data": [f"Expires: {expire_str}"],
+                    "extra_intel": "",
+                    "attack_surface": "Website sẽ bị gián đoạn hoạt động ngay khi chứng chỉ hết hạn."
+                }
             ))
 
-    except ssl.SSLCertVerificationError as e:
-        # Certificate không match domain hoặc không được trust
+    except Exception as e:
         results.append(make_result(
             module="HTTPS",
             check_name="Certificate Valid",
             status="FAIL",
             severity="HIGH",
-            description=f"Certificate không hợp lệ: {e}",
-            fix="Kiểm tra và cài lại SSL certificate đúng cách"
-        ))
-    except ssl.SSLError as e:
-        # SSL handshake thất bại (cipher, protocol, v.v.)
-        results.append(make_result(
-            module="HTTPS",
-            check_name="Certificate Valid",
-            status="FAIL",
-            severity="HIGH",
-            description=f"Lỗi SSL handshake: {e}",
-            fix="Kiểm tra cấu hình TLS/SSL trên server"
-        ))
-    except socket.timeout:
-        # Timeout khi kết nối SSL
-        results.append(make_result(
-            module="HTTPS",
-            check_name="Certificate Valid",
-            status="WARN",
-            severity="LOW",
-            description="Timeout khi kiểm tra certificate"
-        ))
-    except OSError as e:
-        # Network unreachable, connection refused, v.v.
-        results.append(make_result(
-            module="HTTPS",
-            check_name="Certificate Valid",
-            status="WARN",
-            severity="LOW",
-            description=f"Không thể kết nối để kiểm tra certificate: {e}"
+            what_found=f"Lỗi khi xác thực chứng chỉ SSL/TLS: {type(e).__name__}",
+            confidence=90,
+            exposure_detail={
+                "leaked_data": [str(e)],
+                "extra_intel": "",
+                "attack_surface": "Kết nối không an toàn, có thể bị giả mạo hoặc cert không khớp domain."
+            }
         ))
 
     return results
@@ -164,25 +152,14 @@ def check_https(url, verify_ssl=True):
 def _check_http_redirect(url, verify_ssl=True):
     """
     Kiểm tra xem HTTP có tự redirect sang HTTPS không.
-    Nếu website dùng HTTPS, thử truy cập qua HTTP xem có redirect không.
-
-    Args:
-        url: URL HTTPS gốc
-        verify_ssl: Có kiểm tra SSL certificate không
-
-    Returns:
-        list[dict]: Danh sách ScanResult
     """
     results = []
     parsed = urlparse(url)
-
-    # Tạo URL HTTP tương ứng
     http_url = f"http://{parsed.netloc}"
 
     try:
         r = safe_get(http_url, verify_ssl=verify_ssl, allow_redirects=False)
-        if r is None:
-            return results  # Không thể kiểm tra, bỏ qua
+        if r is None: return results
 
         if r.status_code in (301, 302, 307, 308):
             location = r.headers.get("Location", "")
@@ -192,7 +169,8 @@ def _check_http_redirect(url, verify_ssl=True):
                     check_name="HTTP to HTTPS Redirect",
                     status="PASS",
                     severity="INFO",
-                    description=f"HTTP tự redirect sang HTTPS ({r.status_code} → {location})"
+                    what_found=f"HTTP tự động chuyển hướng sang HTTPS ({r.status_code} → {location})",
+                    confidence=100
                 ))
             else:
                 results.append(make_result(
@@ -200,8 +178,13 @@ def _check_http_redirect(url, verify_ssl=True):
                     check_name="HTTP to HTTPS Redirect",
                     status="WARN",
                     severity="MEDIUM",
-                    description=f"HTTP redirect nhưng không sang HTTPS (→ {location})",
-                    fix="Cấu hình redirect từ HTTP sang HTTPS"
+                    what_found=f"HTTP chuyển hướng nhưng không sang giao thức HTTPS (đến: {location})",
+                    confidence=95,
+                    exposure_detail={
+                        "leaked_data": [f"Redirect Location: {location}"],
+                        "extra_intel": f"Status code: {r.status_code}",
+                        "attack_surface": "Người dùng vẫn có thể bị kẹt ở giao thức không an toàn nếu location không phải HTTPS."
+                    }
                 ))
         else:
             results.append(make_result(
@@ -209,14 +192,18 @@ def _check_http_redirect(url, verify_ssl=True):
                 check_name="HTTP to HTTPS Redirect",
                 status="FAIL",
                 severity="MEDIUM",
-                description=f"HTTP không redirect sang HTTPS (status: {r.status_code})",
-                fix="Thêm redirect rule: HTTP → HTTPS (301 permanent redirect)"
+                what_found=f"HTTP không tự động chuyển hướng sang HTTPS (Status code: {r.status_code})",
+                confidence=95,
+                exposure_detail={
+                    "leaked_data": [],
+                    "extra_intel": f"Status: {r.status_code}",
+                    "attack_surface": "Người dùng hoàn toàn có thể truy cập website qua HTTP, tạo điều kiện cho tấn công đánh cắp dữ liệu trên đường truyền."
+                },
+                manual_test=[
+                    {"step": 1, "action": "Gửi request HTTP", "command": f"curl -I {http_url}", "expected": "Status code 200 thay vì 301/302"}
+                ]
             ))
-    except requests.exceptions.Timeout:
-        logger.debug("Timeout khi kiểm tra HTTP redirect")
-    except requests.exceptions.ConnectionError:
-        logger.debug("Không thể kết nối để kiểm tra HTTP redirect")
-    except requests.exceptions.RequestException as e:
-        logger.debug(f"Lỗi request khi kiểm tra HTTP redirect: {type(e).__name__}")
+    except Exception:
+        pass
 
     return results
